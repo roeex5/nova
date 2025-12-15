@@ -11,6 +11,13 @@ A simple, interactive UI for browser automation. Control web browsers through na
 
 ## Setup
 
+### Prerequisites
+
+**macOS users**: Install PortAudio and FLAC (required for voice input)
+```bash
+brew install portaudio flac
+```
+
 ### Using Conda (recommended)
 
 ```bash
@@ -58,6 +65,28 @@ Once the interactive session starts, you can give natural language commands:
 - "Fill in the shipping address form"
 - Type `voice` to switch to voice input mode
 - Type `quit` to exit
+
+### Voice-Controlled Mode (Hands-Free)
+
+For completely hands-free operation with wake word detection:
+
+```bash
+# Basic usage
+python test_voice_browser.py
+
+# With specific microphone (useful when laptop lid is closed)
+python test_voice_browser.py --device 3
+
+# With custom starting page
+python test_voice_browser.py --starting-page https://amazon.com
+```
+
+Once started, simply say "Hey Browser" followed by your command:
+- "Hey Browser, search for Python tutorials"
+- "Hey Browser, go to wikipedia.org"
+- "Hey Browser, click on the first link"
+
+The system will continuously listen for the wake word, execute commands, and return to listening mode automatically.
 
 ### Example Scripts
 

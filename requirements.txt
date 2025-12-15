@@ -1,3 +1,10 @@
 # Nova Act SDK
 nova-act
 
+# Voice input support
+SpeechRecognition
+pyaudio
+
+# Optional: for better audio support on macOS
+# portaudio (install via: brew install portaudio)
+# flac (install via: brew install flac)
