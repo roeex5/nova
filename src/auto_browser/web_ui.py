@@ -6,10 +6,112 @@ Serves the widget and handles client tool calls.
 from flask import Flask, render_template_string, request, jsonify
 from flask_cors import CORS
 import os
+import threading
 from datetime import datetime
 
 app = Flask(__name__)
 CORS(app)  # Enable CORS for client tool calls
+
+
+class AutomationServer:
+    """Thread-safe browser automation session manager with lazy initialization"""
+
+    def __init__(self):
+        self.browser = None
+        self.is_ready = False
+        self.is_configured = False
+        self.lock = threading.Lock()
+        self.api_key = None
+        self.starting_page = None
+        self.headless = False
+
+    def configure(self, api_key, starting_page="https://google.com", headless=False):
+        """Configure automation settings (doesn't start browser yet)"""
+        with self.lock:
+            if self.is_configured:
+                print("\n⚠️  Automation already configured, skipping...")
+                return
+
+            self.api_key = api_key
+            self.starting_page = starting_page
+            self.headless = headless
+            self.is_configured = True
+
+            print(f"\n{'='*80}")
+            print("Browser Automation: CONFIGURED")
+            print(f"{'='*80}")
+            print(f"Starting page: {starting_page}")
+            print(f"Headless mode: {headless}")
+            print(f"Browser will start on first command (lazy initialization)")
+            print(f"{'='*80}\n")
+
+    def _initialize_if_needed(self):
+        """Initialize browser if not already initialized (lazy init)"""
+        # This must be called while holding the lock
+        if self.is_ready and self.browser is not None:
+            return  # Already initialized
+
+        if not self.is_configured:
+            raise RuntimeError("Automation not configured. Call configure() first.")
+
+        print(f"\n{'='*80}")
+        print("🚀 Starting Browser (First Command)")
+        print(f"{'='*80}")
+        print(f"Initializing Nova Act with starting page: {self.starting_page}")
+        print(f"{'='*80}\n")
+
+        try:
+            from .main import BrowserUI
+            self.browser = BrowserUI(api_key=self.api_key, headless=self.headless)
+            self.browser.start(starting_page=self.starting_page)
+            self.is_ready = True
+
+            print(f"\n{'='*80}")
+            print("✅ Browser Automation: READY")
+            print(f"{'='*80}\n")
+
+        except Exception as e:
+            print(f"\n{'='*80}")
+            print(f"❌ ERROR: Failed to initialize browser")
+            print(f"{'='*80}")
+            print(f"{e}\n")
+            import traceback
+            traceback.print_exc()
+            raise
+
+    def execute_prompt(self, prompt):
+        """Execute automation prompt - thread-safe with lazy initialization"""
+        with self.lock:
+            # Initialize browser on first use (lazy)
+            if not self.is_ready:
+                self._initialize_if_needed()
+
+            # Execute automation - this may take a while
+            print(f"\n[AUTOMATION] Executing: {prompt}")
+            self.browser.agent.act(prompt)
+            print(f"[AUTOMATION] Completed\n")
+
+    def shutdown(self):
+        """Clean shutdown of browser session"""
+        with self.lock:
+            if self.browser:
+                print("\nShutting down browser session...")
+                try:
+                    self.browser.stop()
+                except Exception as e:
+                    print(f"Error during shutdown: {e}")
+                finally:
+                    self.browser = None
+                    self.is_ready = False
+                    print("Browser session stopped.")
+
+    def is_busy(self):
+        """Check if currently executing a command"""
+        return self.lock.locked()
+
+
+# Global automation server instance
+automation_server = AutomationServer()
 
 # HTML template with ElevenLabs widget
 HTML_TEMPLATE = """
@@ -282,48 +384,110 @@ def index():
 def execute_automation():
     """
     Endpoint called by the ElevenLabs client tool.
-    Receives the automation prompt and processes it.
+    Receives the automation prompt and executes it via Nova Act.
     """
-    data = request.get_json()
-    prompt = data.get('prompt', '')
+    try:
+        data = request.get_json()
+        if data is None:
+            return jsonify({
+                'status': 'error',
+                'message': 'Invalid or missing JSON data'
+            }), 400
+        
+        prompt = data.get('prompt', '')
 
-    # Print to terminal
-    timestamp = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
-    print(f"\n{'='*80}")
-    print(f"[{timestamp}] AUTOMATION PROMPT RECEIVED:")
-    print(f"{'-'*80}")
-    print(prompt)
-    print(f"{'='*80}\n")
+        if not prompt:
+            return jsonify({
+                'status': 'error',
+                'message': 'No prompt provided'
+            }), 400
 
-    # Phase 0: Return detailed test response (Nova Act integration comes in Phase 1)
-    response_message = (
-        f"Done! I've received your automation request: {prompt}. "
-        f"The integration is working correctly and I can hear you clearly. "
-        f"In the next phase, this will execute real browser automation."
-    )
+        # Log receipt
+        timestamp = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
+        print(f"\n{'='*80}")
+        print(f"[{timestamp}] AUTOMATION PROMPT RECEIVED:")
+        print(f"{'-'*80}")
+        print(prompt)
+        print(f"{'='*80}\n")
 
-    print(f"\n{'='*80}")
-    print(f"[{timestamp}] SENDING RESPONSE TO ELEVENLABS:")
-    print(f"{'-'*80}")
-    print(response_message)
-    print(f"{'='*80}\n")
+        # Execute automation via Nova Act
+        print("Executing automation...")
+        automation_server.execute_prompt(prompt)
 
-    return jsonify({
-        'status': 'success',
-        'message': response_message,
-        'timestamp': timestamp,
-        'prompt': prompt
-    })
+        # Format detailed response
+        response_message = (
+            f"Done! I've completed the automation task: {prompt}. "
+            f"The browser action has finished successfully."
+        )
+
+        print(f"\n{'='*80}")
+        print(f"[{timestamp}] AUTOMATION COMPLETED")
+        print(f"{'-'*80}")
+        print(response_message)
+        print(f"{'='*80}\n")
+
+        return jsonify({
+            'status': 'success',
+            'message': response_message,
+            'timestamp': timestamp,
+            'prompt': prompt
+        })
+
+    except RuntimeError as e:
+        # Browser not initialized
+        error_msg = f"Browser not ready: {str(e)}"
+        print(f"\n{'='*80}")
+        print(f"ERROR: {error_msg}")
+        print(f"{'='*80}\n")
+
+        return jsonify({
+            'status': 'error',
+            'message': error_msg,
+            'timestamp': datetime.now().strftime('%Y-%m-%d %H:%M:%S')
+        }), 503
+
+    except Exception as e:
+        # Automation error
+        error_msg = f"Error executing automation: {str(e)}"
+        print(f"\n{'='*80}")
+        print(f"ERROR: {error_msg}")
+        print(f"{'='*80}\n")
+
+        import traceback
+        traceback.print_exc()
+
+        return jsonify({
+            'status': 'error',
+            'message': error_msg,
+            'timestamp': datetime.now().strftime('%Y-%m-%d %H:%M:%S')
+        }), 500
 
 
-def run_ui(host='127.0.0.1', port=5000):
+def run_ui(host='127.0.0.1', port=5000, api_key=None,
+           starting_page="https://google.com", headless=False, threaded=False):
     """
-    Start the web UI server.
+    Start the web UI server with browser automation.
 
     Args:
         host: Host to bind to (default: 127.0.0.1)
         port: Port to listen on (default: 5000)
+        api_key: Nova Act API key (required for automation)
+        starting_page: Initial browser page (default: https://google.com)
+        headless: Run browser in headless mode (default: False)
+        threaded: If True, returns server object for manual control (for PyQt integration)
     """
+    # Configure automation backend if API key provided
+    # Note: Browser will start lazily on first command (not immediately)
+    if api_key:
+        try:
+            automation_server.configure(api_key, starting_page, headless)
+        except Exception as e:
+            print(f"\nFailed to configure browser automation: {e}")
+            print("Server will start but automation will not be available.\n")
+    else:
+        print("\n⚠️  WARNING: No API key provided, automation will not be available")
+        print("Set NOVA_ACT_API_KEY environment variable or pass --api-key\n")
+
     print(f"\n{'='*80}")
     print("Browser Automation - Voice Interface")
     print(f"{'='*80}")
@@ -331,7 +495,17 @@ def run_ui(host='127.0.0.1', port=5000):
     print("\nOpen your browser and navigate to the URL above.")
     print("Speak to the widget to send automation commands.\n")
 
-    app.run(host=host, port=port, debug=True)
+    if threaded:
+        # Return server for manual control (PyQt integration)
+        from werkzeug.serving import make_server
+        server = make_server(host, port, app)
+        return server
+    else:
+        # Run normally
+        try:
+            app.run(host=host, port=port, debug=False, use_reloader=False)
+        finally:
+            automation_server.shutdown()
 
 
 if __name__ == '__main__':

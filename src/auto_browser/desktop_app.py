@@ -67,8 +67,12 @@ class FlaskServerThread(QObject):
     server_started = pyqtSignal(str)  # Emits URL when ready
     server_error = pyqtSignal(str)    # Emits error message
 
-    def __init__(self, host='127.0.0.1', port=5000):
+    def __init__(self, api_key=None, starting_page="https://google.com",
+                 headless=False, host='127.0.0.1', port=5000):
         super().__init__()
+        self.api_key = api_key
+        self.starting_page = starting_page
+        self.headless = headless
         self.host = host
         self.port = port
         self.server = None
@@ -88,22 +92,36 @@ class FlaskServerThread(QObject):
             if src_path not in sys.path:
                 sys.path.insert(0, src_path)
 
-            # Import Flask app
+            # Import web_ui module
             from auto_browser import web_ui
 
-            # Get server object for manual control
-            from werkzeug.serving import make_server
-            self.server = make_server(self.host, self.port, web_ui.app)
+            # Initialize automation and get server object
+            print(f"\n{'='*80}")
+            print("Starting Flask Server with Browser Automation")
+            print(f"{'='*80}")
+            if self.api_key:
+                print(f"API Key: Provided ✓")
+                print(f"Starting page: {self.starting_page}")
+                print(f"Headless mode: {self.headless}")
+            else:
+                print("⚠️  API Key: Not provided - automation disabled")
+            print(f"{'='*80}\n")
+
+            # Get server with threaded mode
+            self.server = web_ui.run_ui(
+                host=self.host,
+                port=self.port,
+                api_key=self.api_key,
+                starting_page=self.starting_page,
+                headless=self.headless,
+                threaded=True  # Returns server object
+            )
 
             # Signal that server is ready
             url = f"http://{self.host}:{self.port}"
             self.server_started.emit(url)
 
-            print(f"\n{'='*80}")
-            print("Flask Server Starting")
-            print(f"{'='*80}")
-            print(f"Server URL: {url}")
-            print(f"{'='*80}\n")
+            print(f"\nFlask server ready at {url}\n")
 
             # Start serving
             self.server.serve_forever()
@@ -130,9 +148,13 @@ class FlaskServerThread(QObject):
 class DesktopBrowserAutomationApp(QMainWindow):
     """Main desktop application window"""
 
-    def __init__(self, host='127.0.0.1', port=5000):
+    def __init__(self, api_key=None, starting_page='https://google.com',
+                 headless=False, host='127.0.0.1', port=5000):
         super().__init__()
 
+        self.api_key = api_key
+        self.starting_page = starting_page
+        self.headless = headless
         self.host = host
         self.port = port
         self.flask_server = None
@@ -214,6 +236,9 @@ class DesktopBrowserAutomationApp(QMainWindow):
     def start_server(self):
         """Start Flask server in background"""
         self.flask_server = FlaskServerThread(
+            api_key=self.api_key,
+            starting_page=self.starting_page,
+            headless=self.headless,
             host=self.host,
             port=self.port
         )
@@ -250,32 +275,56 @@ class DesktopBrowserAutomationApp(QMainWindow):
 
     def closeEvent(self, event):
         """Handle window close event"""
-        print("\n{'='*80}")
+        print(f"\n{'='*80}")
         print("Closing application...")
-        print("{'='*80}\n")
+        print(f"{'='*80}\n")
 
-        # Stop Flask server
+        # Stop Flask server and automation
         if self.flask_server:
             self.flask_server.stop()
+
+            # Also shutdown automation server
+            try:
+                from auto_browser import web_ui
+                web_ui.automation_server.shutdown()
+            except Exception as e:
+                print(f"Error shutting down automation: {e}")
 
         print("Application closed.\n")
         event.accept()
 
 
-def run_desktop_app(host='127.0.0.1', port=5000):
+def run_desktop_app(api_key=None, starting_page='https://google.com',
+                    headless=False, host='127.0.0.1', port=5000):
     """
-    Launch desktop application (Phase 0 version for testing ElevenLabs integration)
+    Launch desktop application with browser automation
 
     Args:
+        api_key: Nova Act API key (required for automation)
+        starting_page: Initial browser page (default: https://google.com)
+        headless: Run browser in headless mode (default: False)
         host: Flask server host (default: 127.0.0.1)
         port: Flask server port (default: 5000)
     """
+    if not api_key:
+        print(f"\n{'='*80}")
+        print("⚠️  WARNING: No API key provided")
+        print(f"{'='*80}")
+        print("\nBrowser automation will NOT be available.")
+        print("The ElevenLabs widget will work, but commands won't execute.")
+        print("\nTo enable automation:")
+        print("  - Set NOVA_ACT_API_KEY environment variable, OR")
+        print("  - Pass --api-key argument")
+        print(f"\n{'='*80}\n")
+
     print(f"\n{'='*80}")
     print("Browser Automation Desktop UI")
-    print("Phase 0: ElevenLabs Integration Test")
+    print("Phase 1: Full Integration")
     print(f"{'='*80}")
     print("\nStarting desktop application...")
-    print("Speak to the ElevenLabs widget to test the voice interface.\n")
+    if api_key:
+        print("✓ Automation enabled")
+    print("Speak to the ElevenLabs widget to send commands.\n")
 
     # Create Qt application
     app = QApplication(sys.argv)
@@ -283,6 +332,9 @@ def run_desktop_app(host='127.0.0.1', port=5000):
 
     # Create main window
     window = DesktopBrowserAutomationApp(
+        api_key=api_key,
+        starting_page=starting_page,
+        headless=headless,
         host=host,
         port=port
     )
