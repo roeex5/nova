@@ -47,3 +47,10 @@ config.json
 
 # Browser debugging
 chrome-data/
+
+# PyInstaller artifacts (for app packaging)
+*.dmg
+hooks/__pycache__/
+
+# Exclude temporary iconset directories
+resources/*.iconset

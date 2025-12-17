@@ -1,0 +1,9 @@
+# Development and build dependencies for Browser Automation Desktop App
+# Install with: pip install -r requirements-dev.txt
+
+# PyInstaller for packaging
+pyinstaller>=6.0.0
+
+# Testing framework
+pytest>=7.4.0
+pytest-cov>=4.1.0

@@ -318,29 +318,62 @@ def run_desktop_app(api_key=None, starting_page='https://google.com',
         port: Flask server port (default: 5000)
         expanded_ui: Show full UI with header, console, and status (default: False - minimal widget-only UI)
     """
+    # Create Qt application FIRST (needed for dialogs)
+    app = QApplication(sys.argv)
+    app.setApplicationName("Browser Automation")
+
+    # Handle first-run setup if no API key provided
+    if not api_key:
+        from .config_manager import ConfigManager
+        from .setup_dialog import SetupDialog
+
+        # Show setup dialog if config doesn't exist
+        nova_key, agent_id = SetupDialog.run_if_needed()
+
+        if nova_key:
+            api_key = nova_key
+            if agent_id:
+                os.environ['ELEVENLABS_AGENT_ID'] = agent_id
+
+    # Validate API key on startup (if provided)
+    if api_key:
+        from .config_manager import ConfigManager
+        print("\nValidating API key...")
+        is_valid, error_msg = ConfigManager.validate_api_key(api_key)
+
+        if not is_valid:
+            from PyQt6.QtWidgets import QMessageBox
+            msg = QMessageBox()
+            msg.setIcon(QMessageBox.Icon.Critical)
+            msg.setWindowTitle("API Key Validation Failed")
+            msg.setText("The configured API key is invalid.")
+            msg.setInformativeText(
+                f"{error_msg}\n\n"
+                "Please reconfigure your API key by deleting:\n"
+                f"{ConfigManager.CONFIG_FILE}\n\n"
+                "Then restart the application."
+            )
+            msg.exec()
+            sys.exit(1)
+        print("API key validated successfully.")
+
+    # Show warnings if still no API key
     if not api_key:
         print(f"\n{'='*80}")
-        print("⚠️  WARNING: No API key provided")
+        print("⚠️  WARNING: No API key configured")
         print(f"{'='*80}")
         print("\nBrowser automation will NOT be available.")
-        print("The ElevenLabs widget will work, but commands won't execute.")
-        print("\nTo enable automation:")
-        print("  - Set NOVA_ACT_API_KEY environment variable, OR")
-        print("  - Pass --api-key argument")
+        print("The voice widget will work, but commands won't execute.")
+        print("\nTo enable automation, relaunch the app or provide credentials.")
         print(f"\n{'='*80}\n")
 
     print(f"\n{'='*80}")
     print("Browser Automation Desktop UI")
-    print("Phase 1: Full Integration")
     print(f"{'='*80}")
     print("\nStarting desktop application...")
     if api_key:
         print("✓ Automation enabled")
-    print("Speak to the ElevenLabs widget to send commands.\n")
-
-    # Create Qt application
-    app = QApplication(sys.argv)
-    app.setApplicationName("Browser Automation")
+    print("Speak to the voice widget to send commands.\n")
 
     # Create main window
     window = DesktopBrowserAutomationApp(

@@ -57,7 +57,7 @@ class AutomationServer:
         print(f"\n{'='*80}")
         print("🚀 Starting Browser (First Command)")
         print(f"{'='*80}")
-        print(f"Initializing Nova Act with starting page: {self.starting_page}")
+        print(f"Initializing browser automation with starting page: {self.starting_page}")
         print(f"{'='*80}\n")
 
         try:

@@ -58,6 +58,15 @@ def main():
 
     args = parser.parse_args()
 
+    # Add src to path for development mode
+    # IMPORTANT: Do this BEFORE importing Qt (Chromium flags must be set first)
+    # When running from PyInstaller bundle, __file__ points to the executable
+    # and modules are already in sys.path, so this is only needed for dev
+    if not getattr(sys, 'frozen', False):
+        # Running in development mode
+        sys.path.insert(0, os.path.join(os.path.dirname(__file__), 'src'))
+    # When frozen (packaged), PyInstaller puts everything at the root level
+
     # Set Chromium flags to allow microphone access from localhost
     # IMPORTANT: Must be set BEFORE importing Qt
     chromium_flags = [
@@ -73,15 +82,52 @@ def main():
     os.environ['QTWEBENGINE_CHROMIUM_FLAGS'] = ' '.join(chromium_flags)
     print(f"\n[Chromium Flags] {os.environ['QTWEBENGINE_CHROMIUM_FLAGS']}\n")
 
-    # Get API key
+    # Fix QtWebEngineProcess path for PyInstaller bundles
+    if getattr(sys, 'frozen', False):
+        # Running in PyInstaller bundle
+        bundle_dir = os.path.dirname(sys.executable)
+        webengine_process = os.path.join(
+            bundle_dir,
+            '../Frameworks/PyQt6/Qt6/lib/QtWebEngineCore.framework/Versions/Resources/Helpers/QtWebEngineProcess.app/Contents/MacOS/QtWebEngineProcess'
+        )
+        if os.path.exists(webengine_process):
+            os.environ['QTWEBENGINEPROCESS_PATH'] = webengine_process
+            print(f"[QtWebEngine] Set QTWEBENGINEPROCESS_PATH to: {webengine_process}\n")
+
+        # Fix QtWebEngine resources path
+        webengine_resources = os.path.join(
+            bundle_dir,
+            '../Frameworks/PyQt6/Qt6/lib/QtWebEngineCore.framework/Versions/Resources/Resources'
+        )
+        if os.path.exists(webengine_resources):
+            os.environ['QTWEBENGINE_RESOURCES_PATH'] = webengine_resources
+            print(f"[QtWebEngine] Set QTWEBENGINE_RESOURCES_PATH to: {webengine_resources}\n")
+
+        # Fix QtWebEngine locales path
+        webengine_locales = os.path.join(webengine_resources, 'qtwebengine_locales')
+        if os.path.exists(webengine_locales):
+            os.environ['QTWEBENGINE_LOCALES_PATH'] = webengine_locales
+            print(f"[QtWebEngine] Set QTWEBENGINE_LOCALES_PATH to: {webengine_locales}\n")
+
+    # Get API key - priority: CLI arg > env var > config file
     api_key = args.api_key or os.getenv('NOVA_ACT_API_KEY')
+
+    # Try config file if no API key yet
+    if not api_key:
+        from auto_browser.config_manager import ConfigManager
+        api_key = ConfigManager.get_api_key()
 
     # Set ElevenLabs agent ID if provided
     if args.agent_id:
         os.environ['ELEVENLABS_AGENT_ID'] = args.agent_id
+    # Load from config if not in environment
+    elif not os.getenv('ELEVENLABS_AGENT_ID'):
+        from auto_browser.config_manager import ConfigManager
+        agent_id = ConfigManager.get_agent_id()
+        if agent_id:
+            os.environ['ELEVENLABS_AGENT_ID'] = agent_id
 
     # NOW import Qt (after setting environment variables)
-    sys.path.insert(0, os.path.join(os.path.dirname(__file__), 'src'))
     from auto_browser.desktop_app import run_desktop_app
 
     # Show configuration

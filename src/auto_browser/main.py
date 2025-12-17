@@ -1,6 +1,7 @@
 """Main entry point for Browser Automation UI"""
 
 import os
+from pathlib import Path
 from nova_act import NovaAct
 
 
@@ -30,12 +31,18 @@ class BrowserUI:
         # Enable browser debugging (for development)
         os.environ["NOVA_ACT_BROWSER_ARGS"] = "--remote-debugging-port=9222"
 
-        # Internal: Initialize Nova Act agent
+        # Set up persistent user data directory for stateful browser sessions
+        user_data_dir = Path.home() / "Library" / "Application Support" / "BrowserAutomation" / "user_data_dir"
+        user_data_dir.mkdir(parents=True, exist_ok=True)
+
+        # Internal: Initialize Nova Act agent with statefulness
         self.agent = NovaAct(
             starting_page=starting_page,
             headless=self.headless,
             tty=True,
-            nova_act_api_key=self.api_key
+            nova_act_api_key=self.api_key,
+            user_data_dir=str(user_data_dir),
+            clone_user_data_dir=False  # Use persistent directory for cookies/auth
         )
         self.agent.start()
         print(f"Browser session started at {starting_page}")
