@@ -68,13 +68,14 @@ class FlaskServerThread(QObject):
     server_error = pyqtSignal(str)    # Emits error message
 
     def __init__(self, api_key=None, starting_page="https://google.com",
-                 headless=False, host='127.0.0.1', port=5000):
+                 headless=False, host='127.0.0.1', port=5000, expanded_ui=False):
         super().__init__()
         self.api_key = api_key
         self.starting_page = starting_page
         self.headless = headless
         self.host = host
         self.port = port
+        self.expanded_ui = expanded_ui
         self.server = None
         self.thread = None
 
@@ -114,7 +115,8 @@ class FlaskServerThread(QObject):
                 api_key=self.api_key,
                 starting_page=self.starting_page,
                 headless=self.headless,
-                threaded=True  # Returns server object
+                threaded=True,  # Returns server object
+                expanded_ui=self.expanded_ui
             )
 
             # Signal that server is ready
@@ -149,7 +151,7 @@ class DesktopBrowserAutomationApp(QMainWindow):
     """Main desktop application window"""
 
     def __init__(self, api_key=None, starting_page='https://google.com',
-                 headless=False, host='127.0.0.1', port=5000):
+                 headless=False, host='127.0.0.1', port=5000, expanded_ui=False):
         super().__init__()
 
         self.api_key = api_key
@@ -157,6 +159,7 @@ class DesktopBrowserAutomationApp(QMainWindow):
         self.headless = headless
         self.host = host
         self.port = port
+        self.expanded_ui = expanded_ui
         self.flask_server = None
 
         # Setup UI
@@ -169,7 +172,14 @@ class DesktopBrowserAutomationApp(QMainWindow):
         """Initialize the user interface"""
         # Window properties
         self.setWindowTitle("Browser Automation - Voice Interface")
-        self.setGeometry(100, 100, 1200, 800)
+        
+        # Adjust window size based on UI mode
+        if self.expanded_ui:
+            # Full width for expanded mode with console
+            self.setGeometry(100, 100, 1200, 800)
+        else:
+            # Narrower window for minimal widget-only mode (default)
+            self.setGeometry(100, 100, 500, 700)
 
         # Center window on screen
         self.center_on_screen()
@@ -240,7 +250,8 @@ class DesktopBrowserAutomationApp(QMainWindow):
             starting_page=self.starting_page,
             headless=self.headless,
             host=self.host,
-            port=self.port
+            port=self.port,
+            expanded_ui=self.expanded_ui
         )
 
         # Connect signals
@@ -295,7 +306,7 @@ class DesktopBrowserAutomationApp(QMainWindow):
 
 
 def run_desktop_app(api_key=None, starting_page='https://google.com',
-                    headless=False, host='127.0.0.1', port=5000):
+                    headless=False, host='127.0.0.1', port=5000, expanded_ui=False):
     """
     Launch desktop application with browser automation
 
@@ -305,6 +316,7 @@ def run_desktop_app(api_key=None, starting_page='https://google.com',
         headless: Run browser in headless mode (default: False)
         host: Flask server host (default: 127.0.0.1)
         port: Flask server port (default: 5000)
+        expanded_ui: Show full UI with header, console, and status (default: False - minimal widget-only UI)
     """
     if not api_key:
         print(f"\n{'='*80}")
@@ -336,7 +348,8 @@ def run_desktop_app(api_key=None, starting_page='https://google.com',
         starting_page=starting_page,
         headless=headless,
         host=host,
-        port=port
+        port=port,
+        expanded_ui=expanded_ui
     )
 
     # Show window

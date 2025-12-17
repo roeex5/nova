@@ -50,6 +50,11 @@ def main():
         action='store_true',
         help='Disable web security (for debugging WebSocket issues)'
     )
+    parser.add_argument(
+        '--expanded-ui',
+        action='store_true',
+        help='Show full UI with header, console, and status (default: minimal widget-only UI)'
+    )
 
     args = parser.parse_args()
 
@@ -107,7 +112,8 @@ def main():
         starting_page=args.starting_page,
         headless=args.headless,
         host=args.host,
-        port=args.port
+        port=args.port,
+        expanded_ui=args.expanded_ui
     )
 
 

@@ -124,12 +124,13 @@ HTML_TEMPLATE = """
     <style>
         body {
             font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
-            max-width: 1200px;
+            max-width: {% if expanded_ui %}1200px{% else %}600px{% endif %};
             margin: 0 auto;
             padding: 20px;
             background: #f5f5f5;
         }
 
+        {% if expanded_ui %}
         .header {
             background: white;
             padding: 30px;
@@ -220,9 +221,11 @@ HTML_TEMPLATE = """
             0%, 100% { opacity: 1; }
             50% { opacity: 0.5; }
         }
+        {% endif %}
     </style>
 </head>
 <body>
+    {% if expanded_ui %}
     <div class="header">
         <h1>Browser Automation</h1>
         <p class="subtitle">Voice-controlled automation interface</p>
@@ -241,12 +244,14 @@ HTML_TEMPLATE = """
     </div>
 
     <button class="clear-btn" onclick="clearConsole()">Clear Console</button>
+    {% endif %}
 
     <!-- ElevenLabs Conversational AI Widget -->
     <elevenlabs-convai agent-id="{{ agent_id }}"></elevenlabs-convai>
     <script src="https://unpkg.com/@elevenlabs/convai-widget-embed" async type="text/javascript"></script>
 
     <script>
+        {% if expanded_ui %}
         const consoleEl = document.getElementById('console');
 
         function log(event, data) {
@@ -269,6 +274,12 @@ HTML_TEMPLATE = """
         function clearConsole() {
             consoleEl.innerHTML = '<div class="log-entry"><span class="log-time">Ready</span><span class="log-event">Waiting for voice commands...</span></div>';
         }
+        {% else %}
+        // Minimal UI (default) - stub functions for widget compatibility
+        function log(event, data) {
+            console.log('[LOG]', event, data);
+        }
+        {% endif %}
 
         // Register client tools when DOM is ready
         document.addEventListener('DOMContentLoaded', () => {
@@ -282,28 +293,38 @@ HTML_TEMPLATE = """
                 // Listen to all widget events for debugging
                 widget.addEventListener('elevenlabs-convai:status', (event) => {
                     console.log('[WIDGET STATUS]', event.detail);
+                    {% if expanded_ui %}
                     log('Widget Status Change', event.detail);
+                    {% endif %}
                 });
 
                 widget.addEventListener('elevenlabs-convai:error', (event) => {
                     console.error('[WIDGET ERROR]', event.detail);
+                    {% if expanded_ui %}
                     log('Widget Error', event.detail);
+                    {% endif %}
                 });
 
                 widget.addEventListener('elevenlabs-convai:message', (event) => {
                     console.log('[WIDGET MESSAGE]', event.detail);
+                    {% if expanded_ui %}
                     log('Widget Message', { message: event.detail });
+                    {% endif %}
                 });
 
                 // Register client tools when the widget initiates a call
                 widget.addEventListener('elevenlabs-convai:call', (event) => {
                     console.log('[WIDGET] Call initiated, registering client tools...');
+                    {% if expanded_ui %}
                     log('Registering Client Tools', null);
+                    {% endif %}
 
                     // Register the send_prompt_to_automation tool
                     event.detail.config.clientTools = {
                         send_prompt_to_automation: async ({ prompt }) => {
+                            {% if expanded_ui %}
                             log('Tool Called: send_prompt_to_automation', { prompt });
+                            {% endif %}
 
                             try {
                                 // Send prompt to Python backend
@@ -316,26 +337,34 @@ HTML_TEMPLATE = """
                                 });
 
                                 const result = await response.json();
+                                {% if expanded_ui %}
                                 log('Backend Response', result);
+                                {% endif %}
 
                                 // Log what we're returning to ElevenLabs
                                 console.log('[ELEVENLABS] Returning to agent:', result.message);
 
                                 return result.message || 'Command received';
                             } catch (error) {
+                                {% if expanded_ui %}
                                 log('Error', { message: error.message });
+                                {% endif %}
                                 return `Error: ${error.message}`;
                             }
                         }
                     };
 
+                    {% if expanded_ui %}
                     log('Client Tools Registered', {
                         tools: ['send_prompt_to_automation']
                     });
+                    {% endif %}
                 });
             } else {
                 console.error('[WIDGET] Widget element NOT FOUND in DOM!');
+                {% if expanded_ui %}
                 log('Widget Error', { error: 'Widget element not found' });
+                {% endif %}
             }
         });
 
@@ -360,9 +389,11 @@ HTML_TEMPLATE = """
 def index():
     """Serve the main UI with ElevenLabs widget."""
     agent_id = os.getenv('ELEVENLABS_AGENT_ID', 'agent_0901kckpgzzgecfb8dsh31a3h45w')
-    print(f"\n[UI] Serving page with ElevenLabs Agent ID: {agent_id}\n")
+    expanded_ui = getattr(app, 'expanded_ui', False)
+    print(f"\n[UI] Serving page with ElevenLabs Agent ID: {agent_id}")
+    print(f"[UI] Expanded UI mode: {expanded_ui}\n")
 
-    response = app.make_response(render_template_string(HTML_TEMPLATE, agent_id=agent_id))
+    response = app.make_response(render_template_string(HTML_TEMPLATE, agent_id=agent_id, expanded_ui=expanded_ui))
 
     # Add permissive CSP to allow WebSocket connections, AudioWorklets, and external scripts
     # AudioWorklets require blob: URLs and worker-src directive
@@ -464,7 +495,7 @@ def execute_automation():
 
 
 def run_ui(host='127.0.0.1', port=5000, api_key=None,
-           starting_page="https://google.com", headless=False, threaded=False):
+           starting_page="https://google.com", headless=False, threaded=False, expanded_ui=False):
     """
     Start the web UI server with browser automation.
 
@@ -475,7 +506,11 @@ def run_ui(host='127.0.0.1', port=5000, api_key=None,
         starting_page: Initial browser page (default: https://google.com)
         headless: Run browser in headless mode (default: False)
         threaded: If True, returns server object for manual control (for PyQt integration)
+        expanded_ui: Show full UI with header, console, and status (default: False - minimal widget-only UI)
     """
+    # Store expanded_ui flag in app for template access
+    app.expanded_ui = expanded_ui
+    
     # Configure automation backend if API key provided
     # Note: Browser will start lazily on first command (not immediately)
     if api_key:
