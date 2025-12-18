@@ -217,7 +217,7 @@ class DesktopBrowserAutomationApp(QMainWindow):
 
         print("\nWeb Inspector enabled at: http://localhost:9223")
         print("Open this URL in Chrome/Edge to see console logs and network requests")
-        print("\nWebEngine settings configured for ElevenLabs widget:")
+        print("\nWebEngine settings configured for voice widget:")
         print("  - Insecure content allowed")
         print("  - WebSockets enabled")
         print("  - Autoplay enabled\n")
@@ -311,7 +311,7 @@ def run_desktop_app(api_key=None, starting_page='https://google.com',
     Launch desktop application with browser automation
 
     Args:
-        api_key: Nova Act API key (required for automation)
+        api_key: Main API key (required for automation)
         starting_page: Initial browser page (default: https://google.com)
         headless: Run browser in headless mode (default: False)
         host: Flask server host (default: 127.0.0.1)

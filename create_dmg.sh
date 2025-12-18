@@ -7,7 +7,7 @@
 set -e
 
 APP_NAME="BrowserAutomation"
-VERSION="0.1.0"
+VERSION="0.1.1"
 DMG_NAME="${APP_NAME}-${VERSION}.dmg"
 VOLUME_NAME="Browser Automation ${VERSION}"
 

@@ -127,7 +127,7 @@ class SetupDialog(QDialog):
         self.setLayout(layout)
 
     def toggle_nova_visibility(self, state):
-        """Toggle visibility of Nova API key field"""
+        """Toggle visibility of Main API key field"""
         if state == Qt.CheckState.Checked.value:
             self.nova_input.setEchoMode(QLineEdit.EchoMode.Normal)
         else:

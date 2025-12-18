@@ -96,7 +96,7 @@ app = BUNDLE(
     name='BrowserAutomation.app',
     icon='resources/BrowserAutomation.icns',
     bundle_identifier='com.browserautomation.desktop',
-    version='0.1.0',
+    version='0.1.1',
     info_plist={
         'NSHighResolutionCapable': 'True',
         'NSMicrophoneUsageDescription': 'This app needs microphone access for voice control features.',
@@ -104,7 +104,7 @@ app = BUNDLE(
         'LSMinimumSystemVersion': '10.15.0',
         'CFBundleDisplayName': 'Browser Automation',
         'CFBundleName': 'BrowserAutomation',
-        'CFBundleShortVersionString': '0.1.0',
+        'CFBundleShortVersionString': '0.1.1',
         'NSAppTransportSecurity': {
             'NSAllowsArbitraryLoads': True  # Allow localhost connections
         }

@@ -275,7 +275,7 @@ HTML_TEMPLATE = """
 
     <!-- Widget wrapper to enable branding hiding -->
     <div class="widget-wrapper">
-        <!-- ElevenLabs Conversational AI Widget -->
+        <!-- Voice Conversational AI Widget -->
         <elevenlabs-convai agent-id="{{ agent_id }}"></elevenlabs-convai>
     </div>
 
@@ -375,8 +375,8 @@ HTML_TEMPLATE = """
                                 log('Backend Response', result);
                                 {% endif %}
 
-                                // Log what we're returning to ElevenLabs
-                                console.log('[ELEVENLABS] Returning to agent:', result.message);
+                                // Log what we're returning to voice agent
+                                console.log('[VOICE] Returning to agent:', result.message);
 
                                 return result.message || 'Command received';
                             } catch (error) {
@@ -422,6 +422,17 @@ HTML_TEMPLATE = """
 @app.route('/')
 def index():
     """Serve the main UI with ElevenLabs widget."""
+    print(f"\n[DEBUG] / route hit, is_configured: {automation_server.is_configured}")
+
+    # Check if automation is configured
+    if not automation_server.is_configured:
+        # Redirect to setup if not configured
+        print("[DEBUG] Redirecting to /setup")
+        from flask import redirect, url_for
+        return redirect(url_for('setup'))
+
+    print("[DEBUG] Serving main UI")
+
     agent_id = os.getenv('ELEVENLABS_AGENT_ID', 'agent_0901kckpgzzgecfb8dsh31a3h45w')
     expanded_ui = getattr(app, 'expanded_ui', False)
     print(f"\n[UI] Serving page with ElevenLabs Agent ID: {agent_id}")
@@ -528,6 +539,205 @@ def execute_automation():
         }), 500
 
 
+@app.route('/setup')
+def setup():
+    """Show API key setup page"""
+    SETUP_TEMPLATE = """
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Setup - Browser Automation</title>
+    <style>
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
+            max-width: 500px;
+            margin: 50px auto;
+            padding: 20px;
+            background: #f5f5f5;
+        }
+        .setup-card {
+            background: white;
+            padding: 40px;
+            border-radius: 10px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+        }
+        h1 {
+            margin: 0 0 10px 0;
+            color: #333;
+            font-size: 24px;
+        }
+        .subtitle {
+            color: #666;
+            margin: 0 0 30px 0;
+            font-size: 14px;
+        }
+        label {
+            display: block;
+            margin: 20px 0 8px 0;
+            color: #333;
+            font-weight: 500;
+        }
+        input {
+            width: 100%;
+            padding: 12px;
+            border: 1px solid #ddd;
+            border-radius: 5px;
+            font-size: 14px;
+            box-sizing: border-box;
+        }
+        input:focus {
+            outline: none;
+            border-color: #007acc;
+        }
+        .help-text {
+            font-size: 12px;
+            color: #666;
+            margin-top: 5px;
+        }
+        button {
+            width: 100%;
+            padding: 12px;
+            background: #007acc;
+            color: white;
+            border: none;
+            border-radius: 5px;
+            font-size: 16px;
+            font-weight: 500;
+            cursor: pointer;
+            margin-top: 30px;
+        }
+        button:hover {
+            background: #005a9e;
+        }
+        button:disabled {
+            background: #ccc;
+            cursor: not-allowed;
+        }
+        .error {
+            color: #d32f2f;
+            font-size: 14px;
+            margin-top: 10px;
+            display: none;
+        }
+        .success {
+            color: #388e3c;
+            font-size: 14px;
+            margin-top: 10px;
+            display: none;
+        }
+    </style>
+</head>
+<body>
+    <div class="setup-card">
+        <h1>Welcome to Browser Automation</h1>
+        <p class="subtitle">Configure your API keys to get started</p>
+
+        <form id="setupForm">
+            <label for="apiKey">Main API Key *</label>
+            <input type="password" id="apiKey" name="apiKey" required placeholder="Enter your main API key">
+            <div class="help-text">Required for browser automation</div>
+
+            <label for="agentId">Voice Agent ID (Optional)</label>
+            <input type="text" id="agentId" name="agentId" placeholder="agent_xxxxxxxxxxxxxxxxx">
+            <div class="help-text">Optional: For voice control features</div>
+
+            <button type="submit" id="submitBtn">Save and Continue</button>
+
+            <div class="error" id="error"></div>
+            <div class="success" id="success"></div>
+        </form>
+    </div>
+
+    <script>
+        document.getElementById('setupForm').addEventListener('submit', async (e) => {
+            e.preventDefault();
+
+            const submitBtn = document.getElementById('submitBtn');
+            const errorDiv = document.getElementById('error');
+            const successDiv = document.getElementById('success');
+
+            submitBtn.disabled = true;
+            submitBtn.textContent = 'Saving...';
+            errorDiv.style.display = 'none';
+            successDiv.style.display = 'none';
+
+            try {
+                const response = await fetch('/api/save_config', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        api_key: document.getElementById('apiKey').value,
+                        agent_id: document.getElementById('agentId').value
+                    })
+                });
+
+                const result = await response.json();
+
+                if (response.ok) {
+                    successDiv.textContent = 'Configuration saved! Redirecting...';
+                    successDiv.style.display = 'block';
+                    setTimeout(() => window.location.href = '/', 1000);
+                } else {
+                    errorDiv.textContent = result.message || 'Failed to save configuration';
+                    errorDiv.style.display = 'block';
+                    submitBtn.disabled = false;
+                    submitBtn.textContent = 'Save and Continue';
+                }
+            } catch (error) {
+                errorDiv.textContent = 'Error: ' + error.message;
+                errorDiv.style.display = 'block';
+                submitBtn.disabled = false;
+                submitBtn.textContent = 'Save and Continue';
+            }
+        });
+    </script>
+</body>
+</html>
+    """
+    return render_template_string(SETUP_TEMPLATE)
+
+
+@app.route('/api/save_config', methods=['POST'])
+def save_config():
+    """Save API configuration"""
+    try:
+        from .config_manager import ConfigManager
+
+        data = request.get_json()
+        api_key = data.get('api_key', '').strip()
+        agent_id = data.get('agent_id', '').strip()
+
+        if not api_key:
+            return jsonify({'status': 'error', 'message': 'API key is required'}), 400
+
+        # Save config
+        config = {'nova_act_api_key': api_key}
+        if agent_id:
+            config['elevenlabs_agent_id'] = agent_id
+            os.environ['ELEVENLABS_AGENT_ID'] = agent_id
+
+        ConfigManager.save_config(config)
+
+        # Configure automation
+        automation_server.configure(
+            api_key=api_key,
+            starting_page="https://google.com",
+            headless=False
+        )
+
+        print(f"\n✓ Configuration saved and automation enabled")
+
+        return jsonify({'status': 'success', 'message': 'Configuration saved'})
+
+    except Exception as e:
+        print(f"\n✗ Error saving config: {e}")
+        import traceback
+        traceback.print_exc()
+        return jsonify({'status': 'error', 'message': str(e)}), 500
+
+
 def run_ui(host='127.0.0.1', port=5000, api_key=None,
            starting_page="https://google.com", headless=False, threaded=False, expanded_ui=False):
     """
@@ -536,7 +746,7 @@ def run_ui(host='127.0.0.1', port=5000, api_key=None,
     Args:
         host: Host to bind to (default: 127.0.0.1)
         port: Port to listen on (default: 5000)
-        api_key: Nova Act API key (required for automation)
+        api_key: Main API key (required for automation)
         starting_page: Initial browser page (default: https://google.com)
         headless: Run browser in headless mode (default: False)
         threaded: If True, returns server object for manual control (for PyQt integration)
@@ -555,7 +765,7 @@ def run_ui(host='127.0.0.1', port=5000, api_key=None,
             print("Server will start but automation will not be available.\n")
     else:
         print("\n⚠️  WARNING: No API key provided, automation will not be available")
-        print("Set NOVA_ACT_API_KEY environment variable or pass --api-key\n")
+        print("Set API key via configuration or pass --api-key\n")
 
     print(f"\n{'='*80}")
     print("Browser Automation - Voice Interface")

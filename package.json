@@ -1,6 +1,6 @@
 {
   "name": "browser-automation",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "description": "Browser Automation Desktop App with Voice Interface",
   "private": true,
   "scripts": {
