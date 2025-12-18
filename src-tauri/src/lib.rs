@@ -36,10 +36,10 @@ pub fn run() {
               }
           };
 
-          // Resources are in the _up_ subdirectory due to ../ paths in tauri.conf.json
-          let bundle_root = resource_dir.join("_up_");
-          let server_script = bundle_root.join("server.py");
-          let python_exe = bundle_root.join("bundle-venv").join("bin").join("python3");
+          // Resources specified in tauri.conf.json are placed directly in resource_dir
+          // (Tauri resolves ../ paths at build time)
+          let server_script = resource_dir.join("server.py");
+          let python_exe = resource_dir.join("bundle-venv").join("bin").join("python3");
 
           println!("Resource dir: {:?}", resource_dir);
           println!("Python interpreter: {:?}", python_exe);
@@ -55,10 +55,22 @@ pub fn run() {
               return Err("Server script not found in bundle".into());
           }
 
+          // Check for VERBOSE environment variable to pass to Python server
+          let verbose_flag = std::env::var("VERBOSE")
+              .map(|v| v.to_lowercase() == "true" || v == "1")
+              .unwrap_or(false);
+
           // Start Python server with bundled interpreter
-          let python_child = match Command::new(&python_exe)
-              .arg(&server_script)
-              .spawn() {
+          let mut cmd = Command::new(&python_exe);
+          cmd.arg(&server_script);
+
+          // Add verbose flag if set
+          if verbose_flag {
+              println!("VERBOSE mode enabled - passing --verbose to Python server");
+              cmd.arg("--verbose");
+          }
+
+          let python_child = match cmd.spawn() {
                   Ok(child) => child,
                   Err(e) => {
                       eprintln!("ERROR: Failed to start Python server: {}", e);
@@ -85,7 +97,17 @@ pub fn run() {
           let mut lock = app_state.python_process.lock().unwrap();
           if let Some(mut process) = lock.take() {
               println!("Stopping Python server...");
-              let _result = process.kill();
+              // Kill the process and wait for it to exit
+              match process.kill() {
+                  Ok(_) => {
+                      // Wait for process to actually exit to release port and resources
+                      match process.wait() {
+                          Ok(status) => println!("Python server stopped with status: {:?}", status),
+                          Err(e) => eprintln!("Warning: Failed to wait for process exit: {}", e),
+                      }
+                  }
+                  Err(e) => eprintln!("Warning: Failed to kill Python server: {}", e),
+              }
           }
       }
     })

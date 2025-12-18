@@ -1,18 +1,9 @@
-# Nova Act SDK
+# Browser automation backend
 nova-act
 
-# Web UI
+# Web server for Tauri app
 flask
 flask-cors
 
-# Voice input support (legacy CLI)
-SpeechRecognition
-pyaudio
-
-# Desktop UI
-PyQt6>=6.6.0
-PyQt6-WebEngine>=6.6.0
-
-# Optional: for better audio support on macOS
-# portaudio (install via: brew install portaudio)
-# flac (install via: brew install flac)
+# Note: Voice interface is provided by ElevenLabs (no local dependencies required)
+# Note: Desktop UI is built with Tauri (Rust, no Python UI dependencies required)

@@ -20,10 +20,11 @@ class AutomationServer:
         self.browser = None
         self.is_ready = False
         self.is_configured = False
-        self.lock = threading.Lock()
+        self.lock = threading.RLock()  # Use RLock to allow re-entrant locking (prevent deadlocks)
         self.api_key = None
         self.starting_page = None
         self.headless = False
+        self.verbose = os.getenv('VERBOSE', '').lower() in ('true', '1', 'yes')
 
     def configure(self, api_key, starting_page="https://google.com", headless=False):
         """Configure automation settings (doesn't start browser yet)"""
@@ -49,6 +50,8 @@ class AutomationServer:
         """Initialize browser if not already initialized (lazy init)"""
         # This must be called while holding the lock
         if self.is_ready and self.browser is not None:
+            if self.verbose:
+                print("[VERBOSE] Browser already initialized, skipping")
             return  # Already initialized
 
         if not self.is_configured:
@@ -58,16 +61,30 @@ class AutomationServer:
         print("🚀 Starting Browser (First Command)")
         print(f"{'='*80}")
         print(f"Initializing browser automation with starting page: {self.starting_page}")
+        if self.verbose:
+            print(f"[VERBOSE] API key (masked): {self.api_key[:8]}...{self.api_key[-8:] if self.api_key else 'None'}")
+            print(f"[VERBOSE] Headless mode: {self.headless}")
         print(f"{'='*80}\n")
 
         try:
+            if self.verbose:
+                print("[VERBOSE] Importing BrowserUI from main module...")
             from .main import BrowserUI
+
+            if self.verbose:
+                print("[VERBOSE] Creating BrowserUI instance...")
             self.browser = BrowserUI(api_key=self.api_key, headless=self.headless)
+
+            if self.verbose:
+                print(f"[VERBOSE] Starting browser with page: {self.starting_page}")
             self.browser.start(starting_page=self.starting_page)
             self.is_ready = True
 
             print(f"\n{'='*80}")
             print("✅ Browser Automation: READY")
+            if self.verbose:
+                print(f"[VERBOSE] Browser session ID: {id(self.browser)}")
+                print(f"[VERBOSE] Browser ready state: {self.is_ready}")
             print(f"{'='*80}\n")
 
         except Exception as e:
@@ -75,35 +92,86 @@ class AutomationServer:
             print(f"❌ ERROR: Failed to initialize browser")
             print(f"{'='*80}")
             print(f"{e}\n")
+            if self.verbose:
+                print("[VERBOSE] Full traceback:")
             import traceback
             traceback.print_exc()
+
+            # Clean up partially initialized browser to prevent resource leak
+            if self.browser is not None:
+                try:
+                    if self.verbose:
+                        print("[VERBOSE] Cleaning up partially initialized browser...")
+                    self.browser.stop()
+                except Exception as cleanup_error:
+                    if self.verbose:
+                        print(f"[VERBOSE] Cleanup error (non-fatal): {cleanup_error}")
+                finally:
+                    self.browser = None
+                    self.is_ready = False
+
             raise
 
     def execute_prompt(self, prompt):
         """Execute automation prompt - thread-safe with lazy initialization"""
         with self.lock:
+            if self.verbose:
+                print(f"[VERBOSE] Lock acquired for prompt execution")
+                print(f"[VERBOSE] Browser ready state: {self.is_ready}")
+
             # Initialize browser on first use (lazy)
             if not self.is_ready:
+                if self.verbose:
+                    print("[VERBOSE] Browser not ready, initializing...")
                 self._initialize_if_needed()
 
             # Execute automation - this may take a while
             print(f"\n[AUTOMATION] Executing: {prompt}")
-            self.browser.agent.act(prompt)
-            print(f"[AUTOMATION] Completed\n")
+            if self.verbose:
+                print(f"[VERBOSE] Calling browser.agent.act() with prompt length: {len(prompt)}")
 
-    def shutdown(self):
-        """Clean shutdown of browser session"""
+            try:
+                self.browser.agent.act(prompt)
+                if self.verbose:
+                    print(f"[VERBOSE] browser.agent.act() completed successfully")
+                print(f"[AUTOMATION] Completed\n")
+            except Exception as e:
+                print(f"\n[AUTOMATION ERROR] Failed to execute: {e}")
+                if self.verbose:
+                    print("[VERBOSE] Full error traceback:")
+                    import traceback
+                    traceback.print_exc()
+                raise
+
+    def close_browser(self):
+        """Close the browser and clean up resources (callable from API)"""
         with self.lock:
             if self.browser:
-                print("\nShutting down browser session...")
+                if self.verbose:
+                    print("[VERBOSE] Closing browser session...")
+                print("\nClosing browser session...")
                 try:
                     self.browser.stop()
+                    if self.verbose:
+                        print("[VERBOSE] Browser stopped successfully")
                 except Exception as e:
-                    print(f"Error during shutdown: {e}")
+                    print(f"Error during browser close: {e}")
+                    if self.verbose:
+                        import traceback
+                        traceback.print_exc()
                 finally:
                     self.browser = None
                     self.is_ready = False
-                    print("Browser session stopped.")
+                    print("Browser session closed.")
+                return True
+            else:
+                if self.verbose:
+                    print("[VERBOSE] No active browser to close")
+                return False
+
+    def shutdown(self):
+        """Clean shutdown of browser session (alias for close_browser for backward compatibility)"""
+        self.close_browser()
 
     def is_busy(self):
         """Check if currently executing a command"""
@@ -394,6 +462,40 @@ HTML_TEMPLATE = """
                     });
                     {% endif %}
                 });
+
+                // Listen for call end event to close browser
+                widget.addEventListener('elevenlabs-convai:status', async (event) => {
+                    const status = event.detail?.status;
+                    console.log('[WIDGET] Status update:', status);
+
+                    // When call ends (widget goes back to idle), close the browser
+                    if (status === 'idle' || status === 'disconnected') {
+                        console.log('[WIDGET] Call ended, closing browser...');
+                        {% if expanded_ui %}
+                        log('Call Ended - Closing Browser', { status });
+                        {% endif %}
+
+                        try {
+                            const response = await fetch('http://localhost:5000/api/close_browser', {
+                                method: 'POST',
+                                headers: {
+                                    'Content-Type': 'application/json',
+                                }
+                            });
+
+                            const result = await response.json();
+                            console.log('[BROWSER] Close response:', result);
+                            {% if expanded_ui %}
+                            log('Browser Close Result', result);
+                            {% endif %}
+                        } catch (error) {
+                            console.error('[BROWSER] Error closing browser:', error);
+                            {% if expanded_ui %}
+                            log('Browser Close Error', { message: error.message });
+                            {% endif %}
+                        }
+                    }
+                });
             } else {
                 console.error('[WIDGET] Widget element NOT FOUND in DOM!');
                 {% if expanded_ui %}
@@ -464,12 +566,17 @@ def execute_automation():
     """
     try:
         data = request.get_json()
+        if automation_server.verbose:
+            print(f"[VERBOSE] /api/execute_automation called")
+            print(f"[VERBOSE] Request data: {data}")
+            print(f"[VERBOSE] Request headers: {dict(request.headers)}")
+
         if data is None:
             return jsonify({
                 'status': 'error',
                 'message': 'Invalid or missing JSON data'
             }), 400
-        
+
         prompt = data.get('prompt', '')
 
         if not prompt:
@@ -484,6 +591,10 @@ def execute_automation():
         print(f"[{timestamp}] AUTOMATION PROMPT RECEIVED:")
         print(f"{'-'*80}")
         print(prompt)
+        if automation_server.verbose:
+            print(f"[VERBOSE] Prompt length: {len(prompt)} characters")
+            print(f"[VERBOSE] Automation server configured: {automation_server.is_configured}")
+            print(f"[VERBOSE] Browser ready: {automation_server.is_ready}")
         print(f"{'='*80}\n")
 
         # Execute automation via Nova Act
@@ -531,6 +642,63 @@ def execute_automation():
 
         import traceback
         traceback.print_exc()
+
+        return jsonify({
+            'status': 'error',
+            'message': error_msg,
+            'timestamp': datetime.now().strftime('%Y-%m-%d %H:%M:%S')
+        }), 500
+
+
+@app.route('/api/close_browser', methods=['POST'])
+def close_browser_endpoint():
+    """
+    Endpoint to close the browser session.
+    Called when the voice widget call ends or user explicitly requests browser close.
+    """
+    try:
+        if automation_server.verbose:
+            print(f"[VERBOSE] /api/close_browser called")
+            print(f"[VERBOSE] Request headers: {dict(request.headers)}")
+
+        timestamp = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
+
+        if not automation_server.is_configured:
+            return jsonify({
+                'status': 'error',
+                'message': 'Automation not configured',
+                'timestamp': timestamp
+            }), 400
+
+        # Attempt to close browser
+        was_open = automation_server.close_browser()
+
+        if was_open:
+            message = 'Browser session closed successfully'
+            print(f"\n{'='*80}")
+            print(f"[{timestamp}] {message}")
+            print(f"{'='*80}\n")
+        else:
+            message = 'No active browser session to close'
+            if automation_server.verbose:
+                print(f"[VERBOSE] {message}")
+
+        return jsonify({
+            'status': 'success',
+            'message': message,
+            'was_open': was_open,
+            'timestamp': timestamp
+        })
+
+    except Exception as e:
+        error_msg = f"Error closing browser: {str(e)}"
+        print(f"\n{'='*80}")
+        print(f"ERROR: {error_msg}")
+        print(f"{'='*80}\n")
+
+        if automation_server.verbose:
+            import traceback
+            traceback.print_exc()
 
         return jsonify({
             'status': 'error',
