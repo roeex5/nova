@@ -130,6 +130,28 @@ HTML_TEMPLATE = """
             background: #f5f5f5;
         }
 
+        /* Title header styling */
+        .app-title {
+            text-align: center;
+            font-size: 24px;
+            font-weight: 600;
+            color: #333;
+            margin: 15px 0 25px 0;
+            padding: 0;
+        }
+
+        /* Hide ElevenLabs branding footer with gradient overlay */
+        .branding-overlay {
+            position: fixed;
+            bottom: 0;
+            left: 0;
+            right: 0;
+            height: 32px;
+            background: linear-gradient(to bottom, rgba(245,245,245,0) 0%, rgba(245,245,245,0.9) 25%, rgba(245,245,245,1) 50%);
+            z-index: 9999;
+            pointer-events: none;
+        }
+
         {% if expanded_ui %}
         .header {
             background: white;
@@ -246,8 +268,20 @@ HTML_TEMPLATE = """
     <button class="clear-btn" onclick="clearConsole()">Clear Console</button>
     {% endif %}
 
-    <!-- ElevenLabs Conversational AI Widget -->
-    <elevenlabs-convai agent-id="{{ agent_id }}"></elevenlabs-convai>
+    {% if not expanded_ui %}
+    <!-- Title for minimal UI mode -->
+    <h1 class="app-title">Web Automation Agent</h1>
+    {% endif %}
+
+    <!-- Widget wrapper to enable branding hiding -->
+    <div class="widget-wrapper">
+        <!-- ElevenLabs Conversational AI Widget -->
+        <elevenlabs-convai agent-id="{{ agent_id }}"></elevenlabs-convai>
+    </div>
+
+    <!-- Overlay to hide branding footer -->
+    <div class="branding-overlay"></div>
+
     <script src="https://unpkg.com/@elevenlabs/convai-widget-embed" async type="text/javascript"></script>
 
     <script>
@@ -327,8 +361,8 @@ HTML_TEMPLATE = """
                             {% endif %}
 
                             try {
-                                // Send prompt to Python backend
-                                const response = await fetch('/api/execute_automation', {
+                                // Send prompt to Python backend (use absolute URL for Tauri compatibility)
+                                const response = await fetch('http://localhost:5000/api/execute_automation', {
                                     method: 'POST',
                                     headers: {
                                         'Content-Type': 'application/json',

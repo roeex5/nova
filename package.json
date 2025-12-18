@@ -1,0 +1,15 @@
+{
+  "name": "browser-automation",
+  "version": "0.1.0",
+  "description": "Browser Automation Desktop App with Voice Interface",
+  "private": true,
+  "scripts": {
+    "tauri": "tauri",
+    "server": "python server.py",
+    "dev": "tauri dev",
+    "build": "tauri build"
+  },
+  "devDependencies": {
+    "@tauri-apps/cli": "^2.0.0"
+  }
+}

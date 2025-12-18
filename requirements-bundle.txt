@@ -1,0 +1,12 @@
+# Production dependencies for Tauri bundle
+# Minimal set - excludes PyQt6, voice input, and dev tools
+
+# Nova Act SDK
+nova-act
+
+# Web UI (Flask server for Tauri)
+flask>=3.0.0
+flask-cors>=4.0.0
+
+# Werkzeug is a Flask dependency but we specify it for the server
+werkzeug>=3.0.0

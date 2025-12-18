@@ -1,0 +1,89 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Browser Automation</title>
+    <style>
+        body {
+            margin: 0;
+            padding: 20px;
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+            background: #1a1a1a;
+            color: #ffffff;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            height: 100vh;
+        }
+        .container {
+            text-align: center;
+        }
+        h1 {
+            font-size: 24px;
+            margin-bottom: 16px;
+        }
+        p {
+            color: #999;
+            margin-bottom: 24px;
+        }
+        .spinner {
+            border: 3px solid #333;
+            border-top: 3px solid #fff;
+            border-radius: 50%;
+            width: 40px;
+            height: 40px;
+            animation: spin 1s linear infinite;
+            margin: 0 auto;
+        }
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="spinner"></div>
+        <h1>Starting Browser Automation...</h1>
+        <p>Connecting to server</p>
+    </div>
+
+    <script>
+        // Wait for Flask server to start, then redirect
+        console.log('Waiting for Flask server to start...');
+
+        let attempts = 0;
+        const maxAttempts = 20;
+
+        function checkServer() {
+            fetch('http://localhost:5000')
+                .then(response => {
+                    if (response.ok) {
+                        console.log('Flask server is ready, redirecting...');
+                        window.location.href = 'http://localhost:5000';
+                    } else {
+                        retryCheck();
+                    }
+                })
+                .catch(error => {
+                    retryCheck();
+                });
+        }
+
+        function retryCheck() {
+            attempts++;
+            if (attempts < maxAttempts) {
+                setTimeout(checkServer, 500);
+            } else {
+                document.querySelector('h1').textContent = 'Failed to connect to server';
+                document.querySelector('p').textContent = 'Please restart the application';
+                document.querySelector('.spinner').style.display = 'none';
+            }
+        }
+
+        // Start checking after 2 seconds (give Flask time to start)
+        setTimeout(checkServer, 2000);
+    </script>
+</body>
+</html>
