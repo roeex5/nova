@@ -25,6 +25,7 @@ venv/
 ENV/
 env/
 .venv
+bundle-venv/
 
 # IDE
 .vscode/
@@ -47,3 +48,17 @@ config.json
 
 # Browser debugging
 chrome-data/
+
+# PyInstaller artifacts (for app packaging)
+*.dmg
+hooks/__pycache__/
+
+# Exclude temporary iconset directories
+resources/*.iconset
+
+# Tauri / Node.js
+node_modules/
+src-tauri/target/
+package-lock.json
+
+# Tauri build outputs are already covered by dist/ above

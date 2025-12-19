@@ -1,3 +1,9 @@
-# Nova Act SDK
+# Browser automation backend
 nova-act
 
+# Web server for Tauri app
+flask
+flask-cors
+
+# Note: Voice interface is provided by ElevenLabs (no local dependencies required)
+# Note: Desktop UI is built with Tauri (Rust, no Python UI dependencies required)

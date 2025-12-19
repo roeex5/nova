@@ -1,0 +1,47 @@
+{
+  "$schema": "../node_modules/@tauri-apps/cli/config.schema.json",
+  "productName": "BrowserAutomation",
+  "version": "0.1.2",
+  "identifier": "com.browserautomation.desktop",
+  "build": {
+    "frontendDist": "../ui",
+    "devUrl": "http://localhost:5000"
+  },
+  "app": {
+    "windows": [
+      {
+        "title": "Browser Automation",
+        "width": 450,
+        "height": 600,
+        "resizable": true,
+        "fullscreen": false
+      }
+    ],
+    "security": {
+      "csp": null,
+      "capabilities": []
+    },
+    "macOSPrivateApi": true
+  },
+  "bundle": {
+    "active": true,
+    "targets": "all",
+    "icon": [
+      "icons/32x32.png",
+      "icons/128x128.png",
+      "icons/128x128@2x.png",
+      "icons/icon.icns",
+      "icons/icon.ico"
+    ],
+    "resources": [
+      "../server.py",
+      "../src",
+      "../bundle-venv"
+    ],
+    "macOS": {
+      "minimumSystemVersion": "10.15",
+      "signingIdentity": "-",
+      "infoPlist": "./Info.plist"
+    }
+  }
+}
