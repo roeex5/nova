@@ -429,8 +429,9 @@ HTML_TEMPLATE = """
                             {% endif %}
 
                             try {
-                                // Send prompt to Python backend (use absolute URL for Tauri compatibility)
-                                const response = await fetch('http://localhost:5000/api/execute_automation', {
+                                // Send prompt to Python backend (use current origin for dynamic port support)
+                                const apiUrl = `${window.location.origin}/api/execute_automation`;
+                                const response = await fetch(apiUrl, {
                                     method: 'POST',
                                     headers: {
                                         'Content-Type': 'application/json',
@@ -476,7 +477,8 @@ HTML_TEMPLATE = """
                         {% endif %}
 
                         try {
-                            const response = await fetch('http://localhost:5000/api/close_browser', {
+                            const apiUrl = `${window.location.origin}/api/close_browser`;
+                            const response = await fetch(apiUrl, {
                                 method: 'POST',
                                 headers: {
                                     'Content-Type': 'application/json',
@@ -906,14 +908,14 @@ def save_config():
         return jsonify({'status': 'error', 'message': str(e)}), 500
 
 
-def run_ui(host='127.0.0.1', port=5000, api_key=None,
+def run_ui(host='127.0.0.1', port=5555, api_key=None,
            starting_page="https://google.com", headless=False, threaded=False, expanded_ui=False):
     """
     Start the web UI server with browser automation.
 
     Args:
         host: Host to bind to (default: 127.0.0.1)
-        port: Port to listen on (default: 5000)
+        port: Port to listen on (default: 5555)
         api_key: Main API key (required for automation)
         starting_page: Initial browser page (default: https://google.com)
         headless: Run browser in headless mode (default: False)

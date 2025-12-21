@@ -57,24 +57,54 @@
         const maxAttempts = 20;
 
         function checkServer() {
-            fetch('http://localhost:5000')
-                .then(response => {
-                    if (response.ok) {
-                        console.log('Flask server is ready, redirecting...');
-                        window.location.href = 'http://localhost:5000';
-                    } else {
+            // Generate all ports in the range that Tauri backend can allocate (5555-5655)
+            const ports = Array.from({ length: 101 }, (_, i) => 5555 + i);
+            let portIndex = 0;
+            let foundServer = false;
+
+            function tryNextPort() {
+                if (portIndex >= ports.length) {
+                    // Exhausted all ports in this attempt
+                    if (!foundServer) {
                         retryCheck();
                     }
-                })
-                .catch(error => {
-                    retryCheck();
-                });
+                    return;
+                }
+
+                const port = ports[portIndex];
+                const url = `http://localhost:${port}`;
+
+                // Use AbortController to enforce timeout on fetch
+                const controller = new AbortController();
+                const timeout = setTimeout(() => controller.abort(), 2000);
+
+                fetch(url, { signal: controller.signal })
+                    .then(response => {
+                        clearTimeout(timeout);
+                        if (response.ok) {
+                            console.log(`Flask server found on port ${port}, redirecting...`);
+                            foundServer = true;
+                            window.location.href = url;
+                        } else {
+                            portIndex++;
+                            setTimeout(tryNextPort, 100);
+                        }
+                    })
+                    .catch(error => {
+                        clearTimeout(timeout);
+                        portIndex++;
+                        setTimeout(tryNextPort, 100);
+                    });
+            }
+
+            tryNextPort();
         }
 
         function retryCheck() {
             attempts++;
             if (attempts < maxAttempts) {
-                setTimeout(checkServer, 500);
+                console.log(`Server not ready (attempt ${attempts}/${maxAttempts}), retrying...`);
+                setTimeout(checkServer, 100);
             } else {
                 document.querySelector('h1').textContent = 'Failed to connect to server';
                 document.querySelector('p').textContent = 'Please restart the application';

@@ -50,8 +50,9 @@ config.json
 chrome-data/
 
 # PyInstaller artifacts (for app packaging)
+bundle-bin/
+*.spec
 *.dmg
-hooks/__pycache__/
 
 # Exclude temporary iconset directories
 resources/*.iconset

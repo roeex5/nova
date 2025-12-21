@@ -3,8 +3,8 @@
 <plist version="1.0">
 <dict>
     <key>NSMicrophoneUsageDescription</key>
-    <string>This app needs microphone access for voice control</string>
+    <string>Browser Automation needs microphone access to enable voice commands and conversational AI features.</string>
     <key>NSCameraUsageDescription</key>
-    <string>This app may need camera access for automation</string>
+    <string>Browser Automation may need camera access for visual automation tasks.</string>
 </dict>
 </plist>

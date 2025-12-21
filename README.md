@@ -96,7 +96,7 @@ The easiest way to use Browser Automation is through the desktop application:
 npm run dev
 ```
 
-**Note**: The server must be running on port 5000 for the desktop app to work. If you need to run them separately:
+**Note**: The server must be running on port 5555 for the desktop app to work. If you need to run them separately:
 
 ```bash
 npm run server  # Terminal 1: Start Flask backend
@@ -119,7 +119,7 @@ npm run server:verbose
 # Or with full debug mode
 npm run server:debug
 
-# Then open http://localhost:5000 in your browser
+# Then open http://localhost:5555 in your browser
 ```
 
 **Troubleshooting Connection Issues:**

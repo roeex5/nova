@@ -18,7 +18,7 @@ from auto_browser.web_ui import app, automation_server
 from auto_browser.config_manager import ConfigManager
 
 
-def cleanup_port(port=5000):
+def cleanup_port(port=5555):
     """Kill any processes using the specified port (only if it's a Python/Flask process)"""
     try:
         # Use lsof to find process details using the port
@@ -63,6 +63,8 @@ def main():
     """Start Flask server"""
     # Parse command line arguments
     parser = argparse.ArgumentParser(description='Browser Automation Flask Server')
+    parser.add_argument('--port', '-p', type=int, default=5555,
+                       help='Port to run the server on (default: 5555)')
     parser.add_argument('--verbose', '-v', action='store_true',
                        help='Enable verbose logging for debugging Nova Act connection')
     parser.add_argument('--debug', action='store_true',
@@ -108,8 +110,8 @@ def main():
 
     print(f"[DEBUG] automation_server.is_configured BEFORE configure: {automation_server.is_configured}")
 
-    # Clean up any hanging processes on port 5000
-    cleanup_port(5000)
+    # Clean up any hanging processes on the port we're going to use
+    cleanup_port(args.port)
 
     # Set verbose mode in environment for web_ui to pick up
     if args.verbose:
@@ -159,7 +161,7 @@ def main():
         print("   Configure via setup or set API key in configuration")
 
     # Start Flask server
-    print(f"\nStarting Flask server on http://127.0.0.1:5000")
+    print(f"\nStarting Flask server on http://127.0.0.1:{args.port}")
     if args.verbose:
         print("[VERBOSE] Flask debug mode:", "ENABLED" if args.debug else "DISABLED")
         print("[VERBOSE] Flask threading mode: DISABLED (single-threaded for Selenium compatibility)")
@@ -167,7 +169,7 @@ def main():
 
     app.run(
         host='127.0.0.1',
-        port=5000,
+        port=args.port,
         debug=args.debug,
         threaded=False,  # CRITICAL: Selenium WebDriver is NOT thread-safe - must use single thread
         use_reloader=False  # Important: disable reloader for subprocess
